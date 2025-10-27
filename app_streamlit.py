@@ -49,7 +49,7 @@ COMMUNES = {
     },
     "Noble-Contrée": {
         "nom": "Commune de Noble-Contrée",
-        "adresse": "Service technique\nAvenue St-François 6\n3968 Veyras"
+        "adresse": "p.a. OIKEN\nRue de l'Industrie 43\n1951 Sion"
     },
     "Grimisuat": {
         "nom": "Commune de Grimisuat",
