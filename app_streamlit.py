@@ -152,7 +152,7 @@ st.markdown("""
 # EN-TÊTE DE L'APPLICATION
 # ============================================
 
-st.markdown('<div class="main-header">🏢 Enerconseil - Contrôle de dossiers énergétiuqes</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏢 Enerconseil - Contrôle de dossiers énergétiques</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Génération automatique de rapports de conformité énergétique</div>', unsafe_allow_html=True)
 
 # ============================================
