@@ -16,7 +16,7 @@ from export_word import exporter_vers_word
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Enerconseil - Rapports EN-VS",
+    page_title="Enerconseil - Contrôle de dossiers énergétiques",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -29,31 +29,31 @@ st.set_page_config(
 COMMUNES = {
     "Crans-Montana": {
         "nom": "Commune de Crans-Montana",
-        "adresse": "Avenue de la Gare 20\nCase postale 308\n3963 Crans-Montana 1"
+        "adresse": "Avenue de la Gare 20\nCase postale 308\n3963 Crans-Montana"
     },
     "Sion": {
-        "nom": "Commune de Sion",
-        "adresse": "Hôtel de Ville\nRue du Grand-Pont 12\n1950 Sion"
+        "nom": "Commune de Lens",
+        "adresse": "Service Technique\nPlace du Village 1\n1978 Lens"
     },
     "Sierre": {
-        "nom": "Commune de Sierre",
-        "adresse": "Hôtel de Ville\nPlace de l'Hôtel-de-Ville 1\n3960 Sierre"
+        "nom": "Commune de Sion",
+        "adresse": "p.a. OIKEN\nRue de l'Industrie 43\n1951 Sion"
     },
     "Martigny": {
-        "nom": "Commune de Martigny",
-        "adresse": "Hôtel de Ville\nPlace Centrale 4\n1920 Martigny"
+        "nom": "Commune de Nendaz",
+        "adresse": "Service de l'édilité\nRoute de Nendaz 352\n1996 Basse-Nendaz"
     },
     "Monthey": {
-        "nom": "Commune de Monthey",
-        "adresse": "Hôtel de Ville\nPlace de l'Hôtel-de-Ville 1\n1870 Monthey"
+        "nom": "Commune de Fully",
+        "adresse": "Service technique\nRue de l'Eglise 46\n1926 Fully"
     },
     "Brig-Glis": {
-        "nom": "Commune de Brig-Glis",
-        "adresse": "Gemeindeverwaltung\nRathausplatz 1\n3900 Brig"
+        "nom": "Commune de Noble-Contrée",
+        "adresse": "Service technique\nAvenue St-François 6\n3968 Veyras"
     },
     "Visp": {
-        "nom": "Commune de Visp",
-        "adresse": "Gemeindeverwaltung\nMattenweg 8\n3930 Visp"
+        "nom": "Commune de Grimisuat",
+        "adresse": "Service technique\nPlace Mgr Gabriel Balet 1\n1971 Grimisuat"
     }
 }
 
@@ -63,26 +63,21 @@ UTILISATEURS = {
         "nom": "Bonvin",
         "titre": "Ingénieur énergéticien"
     },
-    "Marie Dupont": {
-        "prenom": "Marie",
-        "nom": "Dupont",
-        "titre": "Ingénieure énergéticienne"
-    },
-    "Pierre Martin": {
-        "prenom": "Pierre",
-        "nom": "Martin",
+    "Fabien Roduit": {
+        "prenom": "Fabien",
+        "nom": "Roduit",
         "titre": "Ingénieur thermicien"
     },
-    "Sophie Laurent": {
-        "prenom": "Sophie",
-        "nom": "Laurent",
-        "titre": "Experte en performance énergétique"
+    "Quentin Remondeulaz": {
+        "prenom": "Quentin",
+        "nom": "Remondeulaz",
+        "titre": "Ingénieur thermicien"
     },
-    "Thomas Moreau": {
-        "prenom": "Thomas",
-        "nom": "Moreau",
-        "titre": "Consultant énergétique"
-    }
+    "Steven Deperiers": {
+        "prenom": "Steven",
+        "nom": "Deperiers",
+        "titre": "Ingénieur thermicien"
+    },
 }
 
 # ============================================
