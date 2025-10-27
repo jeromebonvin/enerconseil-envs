@@ -16,7 +16,7 @@ from export_word import exporter_vers_word
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Enerconseil - Conformité énergétique",
+    page_title="Enerconseil - Rapports EN-VS",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
