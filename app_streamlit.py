@@ -160,7 +160,7 @@ st.markdown('<div class="sub-header">Génération automatique de rapports de con
 # ============================================
 
 with st.sidebar:
-    st.image("https://via.placeholder.com/150x50/3498db/ffffff?text=Enerconseil", width=150)
+    st.image("logo.png", width=150)
     
     st.markdown("### ⚙️ Configuration")
     
