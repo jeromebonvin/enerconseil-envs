@@ -4,9 +4,21 @@ import json
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
-load_dotenv()
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
-client = Anthropic(api_key=CLAUDE_API_KEY)
+# Note: Le client Anthropic sera initialisé dynamiquement
+
+
+def get_anthropic_client():
+    """Obtient le client Anthropic avec la clé API depuis Streamlit secrets ou environnement"""
+    try:
+        import streamlit as st
+        api_key = st.secrets.get("CLAUDE_API_KEY")
+    except:
+        api_key = os.getenv("CLAUDE_API_KEY")
+    
+    if not api_key:
+        raise ValueError("CLAUDE_API_KEY non trouvée dans secrets ou environnement")
+    
+    return Anthropic(api_key=api_key)
 
 
 def lire_pdf(path):
@@ -258,7 +270,7 @@ Texte du PDF :
 Réponds UNIQUEMENT avec le JSON complet, sans markdown ni commentaires."""
 
     try:
-        response = client.messages.create(
+        response = get_anthropic_client().messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=8000,
             temperature=0,
