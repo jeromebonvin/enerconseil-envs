@@ -31,11 +31,11 @@ COMMUNES = {
         "nom": "Commune de Crans-Montana",
         "adresse": "Avenue de la Gare 20\nCase postale 308\n3963 Crans-Montana"
     },
-    "Sion": {
+    "Lens": {
         "nom": "Commune de Lens",
         "adresse": "Service Technique\nPlace du Village 1\n1978 Lens"
     },
-    "Sierre": {
+    "Sion": {
         "nom": "Commune de Sion",
         "adresse": "p.a. OIKEN\nRue de l'Industrie 43\n1951 Sion"
     },
@@ -43,15 +43,15 @@ COMMUNES = {
         "nom": "Commune de Nendaz",
         "adresse": "Service de l'édilité\nRoute de Nendaz 352\n1996 Basse-Nendaz"
     },
-    "Monthey": {
+    "Fully": {
         "nom": "Commune de Fully",
         "adresse": "Service technique\nRue de l'Eglise 46\n1926 Fully"
     },
-    "Brig-Glis": {
+    "Noble-Contrée": {
         "nom": "Commune de Noble-Contrée",
         "adresse": "Service technique\nAvenue St-François 6\n3968 Veyras"
     },
-    "Visp": {
+    "Grimisuat": {
         "nom": "Commune de Grimisuat",
         "adresse": "Service technique\nPlace Mgr Gabriel Balet 1\n1971 Grimisuat"
     }
