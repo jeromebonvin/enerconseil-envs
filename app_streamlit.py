@@ -16,7 +16,7 @@ from export_word import exporter_vers_word
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Enerconseil - Contrôle de dossiers énergétiques",
+    page_title="Enerconseil - Conformité énergétique",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -152,7 +152,7 @@ st.markdown("""
 # EN-TÊTE DE L'APPLICATION
 # ============================================
 
-st.markdown('<div class="main-header">🏢 Enerconseil - Rapports EN-VS</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏢 Enerconseil - Contrôle de dossiers énergétiuqes</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Génération automatique de rapports de conformité énergétique</div>', unsafe_allow_html=True)
 
 # ============================================
