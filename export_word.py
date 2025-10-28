@@ -250,7 +250,7 @@ def creer_tableau_elements_enveloppe_opaque(doc, elements_opaques):
 
     table = doc.add_table(rows=1, cols=4)
     table.style = "Table Grid"
-    set_table_header_gray(table, row_index=0)
+    set_table_header_gray(table)
 
     headers = ["Élément", "U [W/m²K]", "Surface [m²]", "Remarque"]
     for i, header_text in enumerate(headers):
@@ -370,7 +370,7 @@ def creer_tableau_formulaire(doc, titre, donnees, form_id):
     if donnees:
         table = doc.add_table(rows=1, cols=2)
         table.style = "Table Grid"
-        set_table_header_gray(table, row_index=0)
+        set_table_header_gray(table)
 
         # En-tête
         cell = table.rows[0].cells[0]
