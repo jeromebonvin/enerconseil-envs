@@ -36,80 +36,66 @@ def extraire_donnees_ia(texte_pdf, nom_fichier=""):
 
     prompt = f"""Tu es un assistant spécialisé dans les formulaires énergétiques du canton du Valais.
 Analyse le texte fourni et extrait TOUTES les données disponibles selon la structure complète ci-dessous.
-
 IMPORTANT : Renvoie UNIQUEMENT un JSON valide, sans texte explicatif.
-
 INSTRUCTIONS D'EXTRACTION :
-
 1. NUMÉRO DE DOSSIER :
    - Cherche dans le nom du fichier : {nom_fichier}
    - Format attendu : "YYYY-XXXX" (ex: 2023-425, 2025-1234)
    - Peut aussi être mentionné dans le document
-
 2. IDENTIFICATION DES FORMULAIRES :
    - Les formulaires sont identifiés par leur code : EN-VS, EN-VS-101a, EN-VS-101b, EN-VS-102a, EN-VS-102b, EN-VS-103, EN-VS-104, EN-VS-105, EN-VS-110
    - Extrait les données de CHAQUE formulaire présent dans le document
-
 3. SOLUTION STANDARD EN-VS-101a (TRÈS IMPORTANT) :
    Le formulaire EN-VS-101a contient un tableau de solutions standards.
-
    STRUCTURE DU TABLEAU :
    - En-tête : Lettres A, B, C, D, E (de gauche à droite)
    - Lignes : Numéros 1, 2, 3, 4 (de haut en bas)
    - Une seule case est cochée avec le symbole ●
-
    MÉTHODE D'EXTRACTION PRÉCISE :
-
    ÉTAPE 1 - IDENTIFIER LA LIGNE (facile) :
    Cherche la case cochée, va tout à gauche du tableau et monte légèrement pour trouver un chiffre
-
    ÉTAPE 2 - IDENTIFIER LA COLONNE (attention aux détails) :
    Cherche la case cochée, va tout eu haut du tableau et, puis légèrement à droite pour trouver une lettre.
-
    RÉSULTAT : Combine ligne + colonne (exemple: "3C" = ligne 3, colonne C)
    
    ASTUCE IMPORTANTE : 
    - Il n'y a pas de solutions standards 1E, 3D, 3E, 4E.
-
-
 4. ÉLÉMENTS D'ENVELOPPE (TRÈS IMPORTANT) :
    - Les éléments doivent être séparés en DEUX listes distinctes
-
    A) ÉLÉMENTS OPAQUES (elements_enveloppe_opaques) :
       - Types : mur, toit, plafond, sol, dalle, caisson de store
       - Champs à extraire :
         * element : nom/description de l'élément
         * valeur_u : valeur U en W/m²K
         * valeur_u_limite : valeur U limite en W/m²K
-        * epaisseur_isolation_cm : épaisseur en cm
-        * type_isolation : type d'isolant (laine minérale, PUR, XPS, etc.)
-        * lambda_isolation : coefficient lambda en W/mK
-
+        * couches_isolation : string décrivant toutes les couches d'isolation
+          Format : "épaisseur cm de TYPE (λ = valeur W/mK) + épaisseur cm de TYPE (λ = valeur W/mK)"
+          Exemples :
+            - Une seule couche : "10 cm de laine minérale (λ = 0.035 W/mK)"
+            - Plusieurs couches : "2 cm d'EPS 30 (λ = 0.033 W/mK) + 4 cm d'EPS 150 (λ = 0.035 W/mK) + 10 cm d'XPS (λ = 0.032 W/mK)"
+          Si pas d'info : null
    B) ÉLÉMENTS VITRÉS (elements_enveloppe_vitres) :
       - Types : fenêtre, porte-fenêtre, velux, porte, baie vitrée
       - Champs à extraire :
         * element : nom/description de l'élément
-        * valeur_u_vitrage : U du vitrage en W/m²K
-        * valeur_u_fenetre : U de la fenêtre complète en W/m²K
+        * valeur_ug : Ug du vitrage (coefficient U du vitrage seul) en W/m²K - aussi noté Us
+        * valeur_uf : Uf du cadre (coefficient U du cadre) en W/m²K - si disponible, sinon null
+        * valeur_uw : Uw de la fenêtre complète (vitrage + cadre) en W/m²K
         * valeur_u_limite : valeur U limite en W/m²K
-
+        * facteur_g : facteur g (transmission énergétique solaire) - aussi noté Gp - valeur entre 0 et 1 - si disponible, sinon null
 4. CASES COCHÉES ET OPTIONS :
    - Symboles : ☑, ✓, ✔, X, ●, ○ (rempli), [X], case cochée
    - "Oui/Non" → boolean (true/false)
    - Si case non cochée ou vide → null
-
 5. VALEURS NUMÉRIQUES :
    - Extraire UNIQUEMENT le nombre (pas l'unité)
    - Surfaces (SRE) en m²
    - Puissances en kW, kWc ou W
    - Débits en m³/h
    - Rendements en %
-
 Structure JSON complète attendue :
-
 {{
   "numero_dossier": "string ou null",
-
   "EN-VS": {{
     "nature_des_travaux": "string ou null",
     "projet_interet_cantonal": "boolean ou null",
@@ -121,13 +107,11 @@ Structure JSON complète attendue :
     "couverture_des_besoins_de_chaleur": "string ou null",
     "formulaires_necessaires_ou_annexes": []
   }},
-
   "EN-VS-101a": {{
     "rafraichissement_humidification_ou_deshumidification": "boolean ou null",
     "pac_reversible_projetee": "boolean ou null",
     "solution_standard_choisie": "string (format: '1A', '2B', '3C', '4D', etc.) ou null"
   }},
-
   "EN-VS-102a": {{
     "hygiene_air_interieur_concept_ventilation": "string ou null",
     "protection_thermique_ete_valeur_g": "string ou null",
@@ -137,17 +121,17 @@ Structure JSON complète attendue :
         "element": "string (mur, toit, sol, caisson de store)",
         "valeur_u": "number ou null",
         "valeur_u_limite": "number ou null",
-        "epaisseur_isolation_cm": "number ou null",
-        "type_isolation": "string ou null",
-        "lambda_isolation": "number ou null"
+        "couches_isolation": "string décrivant toutes les couches ou null"
       }}
     ],
     "elements_enveloppe_vitres": [
       {{
         "element": "string (fenêtre, porte-fenêtre, velux, porte)",
-        "valeur_u_vitrage": "number ou null",
-        "valeur_u_fenetre": "number ou null",
-        "valeur_u_limite": "number ou null"
+        "valeur_ug": "number ou null",
+        "valeur_uf": "number ou null",
+        "valeur_uw": "number ou null",
+        "valeur_u_limite": "number ou null",
+        "facteur_g": "number ou null"
       }}
     ],
     "valeurs_u_respectees_par_tous_elements": "boolean ou null",
@@ -156,7 +140,6 @@ Structure JSON complète attendue :
     "tous_locaux_chauffes_interieur_enveloppe": "boolean ou null",
     "check_list_ponts_thermiques_neuf": "string ou null"
   }},
-
   "EN-VS-103": {{
     "type_de_generateur_de_chaleur": "string ou null",
     "puissance_thermique_kw": "number ou null",
@@ -170,21 +153,18 @@ Structure JSON complète attendue :
     "systeme_mesure_installe_chauffage": "boolean ou null",
     "systeme_mesure_installe_ecs": "boolean ou null"
   }},
-
   "EN-VS-104": {{
     "puissance_production_propre_electricite_annuelle": "number ou null",
     "puissance_production_propre_electricite_requise": "number ou null",
     "nbre_de_panneaux": "number ou null",
     "punitaire_des_panneaux_wc": "number ou null"
   }},
-
   "EN-VS-110": {{
     "surface_nette_plancher_rafraichi_deshumidifie": "number ou null",
     "total_puissances_thermiques_frigorifiques": "number ou null",
     "puissances_electriques_total_kw": "number ou null",
     "puissances_electriques_puissance_specifique_w_m2": "number ou null"
   }},
-
   "EN-VS-105": {{
     "genre_type_installation": "string ou null",
     "air_recycle": "boolean ou null",
@@ -196,7 +176,6 @@ Structure JSON complète attendue :
     "recuperation_chaleur_rc_technique_rc": "string ou null",
     "rendement_rc_solution_standard": "number ou null"
   }},
-
   "EN-VS-102b": {{
     "besoins_chaleur_chauffage_projet_qh": "number ou null",
     "besoins_chaleur_chauffage_projet_qh_li": "number ou null",
@@ -210,28 +189,26 @@ Structure JSON complète attendue :
         "element": "string (mur, toit, sol, caisson de store)",
         "valeur_u": "number ou null",
         "valeur_u_limite": "number ou null",
-        "epaisseur_isolation_cm": "number ou null",
-        "type_isolation": "string ou null",
-        "lambda_isolation": "number ou null"
+        "couches_isolation": "string décrivant toutes les couches ou null"
       }}
     ],
     "elements_enveloppe_vitres": [
       {{
         "element": "string (fenêtre, porte-fenêtre, velux, porte)",
-        "valeur_u_vitrage": "number ou null",
-        "valeur_u_fenetre": "number ou null",
-        "valeur_u_limite": "number ou null"
+        "valeur_ug": "number ou null",
+        "valeur_uf": "number ou null",
+        "valeur_uw": "number ou null",
+        "valeur_u_limite": "number ou null",
+        "facteur_g": "number ou null"
       }}
-    ]
+    ],
   }},
-
   "EN-VS-101b": {{
     "valeur_limite_ehwlk_exigences": "number ou null",
     "valeur_limite_ehwlk_valeur_calculee": "number ou null",
     "valeur_limite_ehwlk_respectee": "boolean ou null"
   }}
 }}
-
 RÈGLES D'EXTRACTION :
 - Si un formulaire n'est PAS présent dans le document, ne pas inclure sa section dans le JSON
 - Si une donnée n'est pas trouvée dans un formulaire présent, mettre null
@@ -239,12 +216,10 @@ RÈGLES D'EXTRACTION :
 - Toutes les valeurs numériques doivent être des nombres (pas de strings, pas d'unités)
 - Les listes vides sont acceptées si aucun élément trouvé
 - Ne pas inventer de données : si absent = null
-
 EXEMPLE POUR EN-VS-101a :
 Si dans le tableau tu trouves :
 - Une coche (●) à la ligne 3 (celle avec "0,15" et "1,00")
 - Sous l'en-tête "Chauffage à distance d'UIOM, STEP..." (colonne C - la colonne du MILIEU)
-
 Alors le résultat doit être :
 {{
   "EN-VS-101a": {{
@@ -253,20 +228,15 @@ Alors le résultat doit être :
     "solution_standard_choisie": "3C"
   }}
 }}
-
 VÉRIFICATION : 
 - "3C" signifie : ligne 3 (0,15 W/m²K + Uw 1,00) + colonne C (chauffage à distance)
 - Si tu vois "UIOM" ou "STEP" dans le texte, c'est FORCÉMENT la colonne C
 - Ne confonds pas avec la colonne A (sol-eau) ou D (air-eau)
-
 ATTENTION : La solution standard doit être au format "chiffre+lettre" (exemples : "1A", "2B", "3C", "4D")
 Ne pas écrire des phrases longues, juste le code "XY" où X = numéro ligne (1-4) et Y = lettre colonne (A-E).
-
 Nom du fichier : {nom_fichier}
-
 Texte du PDF :
 {texte_pdf}
-
 Réponds UNIQUEMENT avec le JSON complet, sans markdown ni commentaires."""
 
     try:
