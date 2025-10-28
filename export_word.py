@@ -251,7 +251,7 @@ def creer_tableau_elements_enveloppe_opaque(doc, elements):
     table = doc.add_table(rows=len(elements) + 1, cols=4)
     table.style = "Table Grid"
 
-    headers = ["Élément", "Construction", "Valeur U projet (W/m²K)", "Valeur U limite (W/m²K)"]
+    headers = ["Élément", "Couches d'isolation", "Valeur U projet (W/m²K)", "Valeur U limite (W/m²K)"]
     for i, h in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = h
@@ -262,16 +262,27 @@ def creer_tableau_elements_enveloppe_opaque(doc, elements):
         c = table.rows[idx].cells
         c[0].text = str(elem.get("element", "—"))
         
-        # Construction : épaisseur + type + lambda
-        construction_parts = []
-        if elem.get('epaisseur_isolation_cm') is not None:
-            construction_parts.append(f"{elem.get('epaisseur_isolation_cm')} cm")
-        if elem.get('type_isolation'):
-            construction_parts.append(f"de {elem.get('type_isolation')}")
-        if elem.get('lambda_isolation') is not None:
-            construction_parts.append(f"(λ={elem.get('lambda_isolation')} W/mK)")
+        # Couches d'isolation : nouveau format OU ancien format (rétrocompatible)
+        couches = elem.get('couches_isolation', '')
         
-        c[1].text = " ".join(construction_parts) if construction_parts else "—"
+        # Si le nouveau champ n'existe pas ou est vide, reconstruire depuis les anciens champs
+        if not couches:
+            construction_parts = []
+            epaisseur = elem.get('epaisseur_isolation_cm')
+            type_iso = elem.get('type_isolation')
+            lambda_val = elem.get('lambda_isolation')
+            
+            if epaisseur is not None:
+                construction_parts.append(f"{epaisseur} cm")
+            if type_iso:
+                construction_parts.append(f"de {type_iso}")
+            if lambda_val is not None:
+                construction_parts.append(f"(λ={lambda_val} W/mK)")
+            
+            couches = " ".join(construction_parts) if construction_parts else "—"
+        
+        c[1].text = couches
+        
         c[2].text = str(elem.get("valeur_u")) if elem.get("valeur_u") is not None else "—"
         c[3].text = str(elem.get("valeur_u_limite")) if elem.get("valeur_u_limite") is not None else "—"
         
@@ -298,7 +309,7 @@ def creer_tableau_elements_enveloppe_opaque(doc, elements):
                 pass  # Si conversion impossible, ignorer
 
     table.columns[0].width = Cm(3.5)   # Élément
-    table.columns[1].width = Cm(10.0)  # Construction (agrandi)
+    table.columns[1].width = Cm(10.0)  # Couches d'isolation (agrandi)
     table.columns[2].width = Cm(1.75)  # U projet
     table.columns[3].width = Cm(1.75)  # U limite
 
@@ -327,23 +338,47 @@ def ajouter_elements_vitres_au_tableau(table, elements_vitres):
             # Porte simple
             c[1].text = "Porte isolante à définir"
         else:
-            # Fenêtre, porte-fenêtre, velux
-            u_vitrage = elem.get("valeur_u_vitrage")
+            # Fenêtre, porte-fenêtre, velux - Nouveau format avec Ug, Uf, g OU ancien format
+            ug = elem.get("valeur_ug") or elem.get("valeur_u_vitrage")  # Nouveau OU ancien
+            uf = elem.get("valeur_uf")  # Cadre
+            uw = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")  # Nouveau OU ancien
+            facteur_g = elem.get("facteur_g")  # Facteur solaire
             
-            # Détecter si double ou triple vitrage
-            if u_vitrage is not None:
-                if u_vitrage <= 0.7:
+            # Détecter si double ou triple vitrage basé sur Ug
+            if ug is not None:
+                if ug <= 0.7:
                     type_vitrage = "Triple vitrage"
                 else:
                     type_vitrage = "Double vitrage"
             else:
                 type_vitrage = "Double/Triple vitrage"
             
-            construction = f"{type_vitrage} Ug = {u_vitrage if u_vitrage is not None else 'xx'} W/m²K, g = xx, cadre performant Uf = xx W/mK, intercalaire à rupture thermique"
+            # Construction de la description
+            parts = [type_vitrage]
+            
+            if ug is not None:
+                parts.append(f"Ug = {ug} W/m²K")
+            else:
+                parts.append("Ug = xx W/m²K")
+            
+            if facteur_g is not None:
+                parts.append(f"g = {facteur_g}")
+            else:
+                parts.append("g = xx")
+            
+            if uf is not None:
+                parts.append(f"cadre performant Uf = {uf} W/mK")
+            else:
+                parts.append("cadre performant Uf = xx W/mK")
+            
+            parts.append("intercalaire à rupture thermique")
+            
+            construction = ", ".join(parts)
             c[1].text = construction
         
-        # U fenêtre (projet)
-        c[2].text = str(elem.get("valeur_u_fenetre")) if elem.get("valeur_u_fenetre") is not None else "—"
+        # U fenêtre (projet) - Utiliser valeur_uw OU valeur_u_fenetre (rétrocompatible)
+        u_fenetre = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")
+        c[2].text = str(u_fenetre) if u_fenetre is not None else "—"
         
         # U limite
         c[3].text = str(elem.get("valeur_u_limite")) if elem.get("valeur_u_limite") is not None else "—"
@@ -351,13 +386,13 @@ def ajouter_elements_vitres_au_tableau(table, elements_vitres):
         for cell in c:
             set_font(cell.paragraphs[0])
         
-        # ✅ Mettre la ligne en rouge si U fenêtre > U limite
-        valeur_u_fenetre = elem.get("valeur_u_fenetre")
+        # ✅ Mettre la ligne en rouge si Uw > U limite (rétrocompatible)
+        valeur_uw = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")
         valeur_u_limite = elem.get("valeur_u_limite")
         
-        if valeur_u_fenetre is not None and valeur_u_limite is not None:
+        if valeur_uw is not None and valeur_u_limite is not None:
             try:
-                if float(valeur_u_fenetre) > float(valeur_u_limite):
+                if float(valeur_uw) > float(valeur_u_limite):
                     # Mettre toute la ligne en rouge
                     from docx.oxml import parse_xml
                     from docx.oxml.ns import nsdecls
