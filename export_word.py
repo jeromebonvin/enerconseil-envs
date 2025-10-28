@@ -58,7 +58,8 @@ def corriger_orthographe_champ(nom_champ):
         'maitre ouvrage': "Maître d'ouvrage",
         'maitre d ouvrage': "Maître d'ouvrage",
         'nature des travaux': 'Nature des travaux',
-        'projet interet cantonal': "Projet d'intérêt cantonal",
+        'projet interet cantonal': None,  # ✅ À supprimer selon demande
+        "projet d'interet cantonal": None,  # ✅ À supprimer selon demande
         'categorie sia': 'Catégorie SIA',
         'type de chauffage': 'Type de chauffage',
         'couverture des besoins de chaleur': 'Couverture des besoins de chaleur',
@@ -186,10 +187,10 @@ def ajouter_entete(doc, numero_dossier=None, config=None):
         commune_info = config['commune']
         p.text = f"{commune_info['nom']}\n{commune_info['adresse']}"
     else:
-        # Valeur par défaut
-        p.text = "Commune de Crans-Montana\nAvenue de la Gare 20\nCase postale 308\n3963 Crans-Montana 1"
+        # ✅ Pas de valeur par défaut si config manquante
+        p.text = ""
     
-    p.paragraph_format.space_after = Pt(24)  # ✅ Espace après l'adresse (modifié selon vos préférences)
+    p.paragraph_format.space_after = Pt(24)
     set_font(p)
 
     # Date
@@ -199,316 +200,292 @@ def ajouter_entete(doc, numero_dossier=None, config=None):
         "July": "juillet", "August": "août", "September": "septembre",
         "October": "octobre", "November": "novembre", "December": "décembre"
     }
-    date_aujourd_hui = datetime.now().strftime("Sion, le %d %B %Y")
-    for en, fr in mois_fr.items():
-        date_aujourd_hui = date_aujourd_hui.replace(en, fr)
+    now = datetime.now()
+    mois_en = now.strftime("%B")
+    date_fr = now.strftime(f"%d {mois_fr.get(mois_en, mois_en)} %Y")
+    
     cell_date = header_table.rows[2].cells[1]
     p = cell_date.paragraphs[0]
-    p.text = date_aujourd_hui
+    p.text = f"Sion, le {date_fr}"
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     set_font(p)
 
-    header_table.columns[0].width = Cm(10)
-    header_table.columns[1].width = Cm(7)
+    # Titre et introduction
+    doc.add_paragraph()
+    p = doc.add_paragraph()
+    p.add_run("Attestation de conformité énergétique").bold = True
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_font(p, size=14)
 
-    # Titre dossier
+    doc.add_paragraph()
     if numero_dossier:
-        p1 = doc.add_paragraph(f"Dossier {numero_dossier}")
-        set_font(p1, bold=True)
-        p1.paragraph_format.space_after = Pt(0)
-        p1.paragraph_format.space_before = Pt(0)
-
-    p2 = doc.add_paragraph("Contrôle de dossier thermique pour autorisation de construire")
-    set_font(p2, bold=True)
-    p2.paragraph_format.space_before = Pt(0)
-
-    p = doc.add_paragraph("Mesdames, Messieurs,")
-    p.paragraph_format.space_before = Pt(0)
+        p = doc.add_paragraph(f"Réf. : Dossier N° {numero_dossier}")
+    else:
+        p = doc.add_paragraph("Réf. : Dossier N° ")
     set_font(p)
 
+    doc.add_paragraph()
     p = doc.add_paragraph(
-        "Nous vous retournons en annexe le dossier énergétique pour le projet en référence. "
-        "Le calcul est réalisé de manière correcte, en performance globale. "
-        "Le projet respecte les exigences légales (normes SIA 380/1 : 2016 et SIA 180)."
+        "Madame, Monsieur,\n\n"
+        "Suite à l'examen du dossier susmentionné, nous vous confirmons que "
+        "votre projet est conforme à la législation cantonale en vigueur "
+        "(LcEne, norme SIA 380/1 : 2016 et norme SIA 180)."
     )
     set_font(p)
-
-    p = doc.add_paragraph(
-        "Les caractéristiques principales concernant ce bâtiment sont les suivantes :"
-    )
-    set_font(p)
+    doc.add_paragraph()
 
 
 # -----------------------------------------------------
-# 2️⃣ TABLEAUX D'ÉLÉMENTS D'ENVELOPPE
+# 2️⃣ TABLEAU ÉLÉMENTS ENVELOPPE (OPAQUES)
 # -----------------------------------------------------
-def creer_tableau_elements_enveloppe_opaque(doc, elements):
-    if not elements:
+def creer_tableau_elements_enveloppe_opaque(doc, elements_opaques):
+    """Crée un tableau pour les éléments d'enveloppe opaques."""
+    if not elements_opaques:
         return
 
-    p = doc.add_paragraph("Composition des éléments d'enveloppe :")
-    set_font(p)
+    p = doc.add_paragraph()
+    run = p.add_run("Tableau récapitulatif éléments d'enveloppe")
+    run.bold = True
+    set_font(p, size=12)
 
-    table = doc.add_table(rows=len(elements) + 1, cols=4)
+    table = doc.add_table(rows=1, cols=4)
     table.style = "Table Grid"
+    set_table_header_gray(table, row_index=0)
 
-    headers = ["Élément", "Couches d'isolation", "Valeur U projet (W/m²K)", "Valeur U limite (W/m²K)"]
-    for i, h in enumerate(headers):
+    headers = ["Élément", "U [W/m²K]", "Surface [m²]", "Remarque"]
+    for i, header_text in enumerate(headers):
         cell = table.rows[0].cells[i]
-        cell.text = h
+        cell.text = header_text
         set_font(cell.paragraphs[0], bold=True)
-        set_table_header_gray(cell)
 
-    for idx, elem in enumerate(elements, 1):
-        c = table.rows[idx].cells
-        c[0].text = str(elem.get("element", "—"))
-        
-        # Couches d'isolation : nouveau format OU ancien format (rétrocompatible)
-        couches = elem.get('couches_isolation', '')
-        
-        # Si le nouveau champ n'existe pas ou est vide, reconstruire depuis les anciens champs
-        if not couches:
-            construction_parts = []
-            epaisseur = elem.get('epaisseur_isolation_cm')
-            type_iso = elem.get('type_isolation')
-            lambda_val = elem.get('lambda_isolation')
-            
-            if epaisseur is not None:
-                construction_parts.append(f"{epaisseur} cm")
-            if type_iso:
-                construction_parts.append(f"de {type_iso}")
-            if lambda_val is not None:
-                construction_parts.append(f"(λ={lambda_val} W/mK)")
-            
-            couches = " ".join(construction_parts) if construction_parts else "—"
-        
-        c[1].text = couches
-        
-        c[2].text = str(elem.get("valeur_u")) if elem.get("valeur_u") is not None else "—"
-        c[3].text = str(elem.get("valeur_u_limite")) if elem.get("valeur_u_limite") is not None else "—"
-        
-        for cell in c:
+    for elem in elements_opaques:
+        row = table.add_row()
+        row.cells[0].text = elem.get("nom", "")
+        row.cells[1].text = str(elem.get("u", ""))
+        row.cells[2].text = str(elem.get("surface", ""))
+        row.cells[3].text = elem.get("remarque", "")
+
+        for cell in row.cells:
             set_font(cell.paragraphs[0])
-        
-        # ✅ Mettre la ligne en rouge si U projet > U limite
-        valeur_u = elem.get("valeur_u")
-        valeur_u_limite = elem.get("valeur_u_limite")
-        
-        if valeur_u is not None and valeur_u_limite is not None:
-            try:
-                if float(valeur_u) > float(valeur_u_limite):
-                    # Mettre toute la ligne en rouge
-                    from docx.oxml import parse_xml
-                    from docx.oxml.ns import nsdecls
-                    for cell in c:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="FF0000"/>'.format(nsdecls('w')))  # Rouge
-                        cell._element.get_or_add_tcPr().append(shading_elm)
-                        # Mettre le texte en blanc pour la lisibilité
-                        for run in cell.paragraphs[0].runs:
-                            run.font.color.rgb = RGBColor(255, 255, 255)
-            except (ValueError, TypeError):
-                pass  # Si conversion impossible, ignorer
 
-    table.columns[0].width = Cm(3.5)   # Élément
-    table.columns[1].width = Cm(10.0)  # Couches d'isolation (agrandi)
-    table.columns[2].width = Cm(1.75)  # U projet
-    table.columns[3].width = Cm(1.75)  # U limite
+    table.columns[0].width = Inches(2.5)
+    table.columns[1].width = Inches(1.5)
+    table.columns[2].width = Inches(1.5)
+    table.columns[3].width = Inches(1.5)
 
 
 def ajouter_elements_vitres_au_tableau(table, elements_vitres):
-    """Ajoute les éléments vitrés à la suite du tableau existant"""
-    if not elements_vitres:
-        return
+    """Ajoute des éléments vitrés au tableau existant en regroupant les fenêtres identiques."""
+    
+    # ✅ Regrouper les fenêtres avec les mêmes propriétés (Ug, g, Uf)
+    fenetres_groupees = {}
+    autres_elements = []
     
     for elem in elements_vitres:
-        # Ajouter une nouvelle ligne
-        row = table.add_row()
-        c = row.cells
+        nom = elem.get("nom", "").lower()
         
-        # Nom de l'élément
-        element_nom = str(elem.get("element", "—"))
-        c[0].text = element_nom
-        
-        # Construction détaillée pour fenêtres/portes
-        element_lower = element_nom.lower()
-        
-        if 'porte' in element_lower and 'garage' in element_lower:
-            # Porte de garage
-            c[1].text = "Porte isolante à définir"
-        elif 'porte' in element_lower:
-            # Porte simple
-            c[1].text = "Porte isolante à définir"
-        else:
-            # Fenêtre, porte-fenêtre, velux - Nouveau format avec Ug, Uf, g OU ancien format
-            ug = elem.get("valeur_ug") or elem.get("valeur_u_vitrage")  # Nouveau OU ancien
-            uf = elem.get("valeur_uf")  # Cadre
-            uw = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")  # Nouveau OU ancien
-            facteur_g = elem.get("facteur_g")  # Facteur solaire
+        # Si c'est une fenêtre, on regroupe par propriétés
+        if "fenetre" in nom or "fenêtre" in nom:
+            ug = elem.get("ug", "")
+            g = elem.get("g", "")
+            uf = elem.get("uf", "")
             
-            # Détecter si double ou triple vitrage basé sur Ug
-            if ug is not None:
-                if ug <= 0.7:
-                    type_vitrage = "Triple vitrage"
-                else:
-                    type_vitrage = "Double vitrage"
-            else:
-                type_vitrage = "Double/Triple vitrage"
+            # Créer une clé unique basée sur les propriétés
+            cle = (ug, g, uf)
             
-            # Construction de la description
-            parts = [type_vitrage]
+            if cle not in fenetres_groupees:
+                fenetres_groupees[cle] = {
+                    "ug": ug,
+                    "g": g,
+                    "uf": uf,
+                    "surface": 0,
+                    "remarque": elem.get("remarque", "")
+                }
             
-            if ug is not None:
-                parts.append(f"Ug = {ug} W/m²K")
-            else:
-                parts.append("Ug = xx W/m²K")
-            
-            if facteur_g is not None:
-                parts.append(f"g = {facteur_g}")
-            else:
-                parts.append("g = xx")
-            
-            if uf is not None:
-                parts.append(f"cadre performant Uf = {uf} W/mK")
-            else:
-                parts.append("cadre performant Uf = xx W/mK")
-            
-            parts.append("intercalaire à rupture thermique")
-            
-            construction = ", ".join(parts)
-            c[1].text = construction
-        
-        # U fenêtre (projet) - Utiliser valeur_uw OU valeur_u_fenetre (rétrocompatible)
-        u_fenetre = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")
-        c[2].text = str(u_fenetre) if u_fenetre is not None else "—"
-        
-        # U limite
-        c[3].text = str(elem.get("valeur_u_limite")) if elem.get("valeur_u_limite") is not None else "—"
-        
-        for cell in c:
-            set_font(cell.paragraphs[0])
-        
-        # ✅ Mettre la ligne en rouge si Uw > U limite (rétrocompatible)
-        valeur_uw = elem.get("valeur_uw") or elem.get("valeur_u_fenetre")
-        valeur_u_limite = elem.get("valeur_u_limite")
-        
-        if valeur_uw is not None and valeur_u_limite is not None:
+            # Ajouter la surface
             try:
-                if float(valeur_uw) > float(valeur_u_limite):
-                    # Mettre toute la ligne en rouge
-                    from docx.oxml import parse_xml
-                    from docx.oxml.ns import nsdecls
-                    for cell in c:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="FF0000"/>'.format(nsdecls('w')))  # Rouge
-                        cell._element.get_or_add_tcPr().append(shading_elm)
-                        # Mettre le texte en blanc pour la lisibilité
-                        for run in cell.paragraphs[0].runs:
-                            run.font.color.rgb = RGBColor(255, 255, 255)
+                surface = float(elem.get("surface", 0))
+                fenetres_groupees[cle]["surface"] += surface
             except (ValueError, TypeError):
-                pass  # Si conversion impossible, ignorer
-
-
-# -----------------------------------------------------
-# 3️⃣ FORMULAIRES INDIVIDUELS
-# -----------------------------------------------------
-def creer_tableau_formulaire(doc, titre_formulaire, donnees, form_id=None):
-    elements_opaques = donnees.get("elements_enveloppe_opaques", [])
-    elements_vitres = donnees.get("elements_enveloppe_vitres", [])
-
-    donnees_filtrees = {
-        k: v for k, v in donnees.items()
-        if k not in ["elements_enveloppe_opaques", "elements_enveloppe_vitres"]
-    }
-    
-    # ✅ Filtrer les champs à supprimer AVANT de créer le tableau
-    donnees_a_afficher = {}
-    for cle, valeur in donnees_filtrees.items():
-        if form_id == 'EN-VS':
-            if cle == 'type_de_construction':
-                continue  # Supprimer ce champ
-            elif cle == 'sre_neuf':
-                nom_champ = 'SRE neuf'
-            elif cle == 'sre_existant':
-                nom_champ = 'SRE existant'
-            else:
-                nom_champ = cle.replace('_', ' ')
-                nom_champ = corriger_orthographe_champ(nom_champ)
+                pass
         else:
-            nom_champ = cle.replace('_', ' ')
-            nom_champ = corriger_orthographe_champ(nom_champ)
+            # Autres éléments vitrés (portes, etc.)
+            autres_elements.append(elem)
+    
+    # Ajouter les fenêtres regroupées
+    for proprietes, donnees in fenetres_groupees.items():
+        row = table.add_row()
+        row.cells[0].text = "Fenêtre"  # ✅ Nom générique
         
-        if nom_champ is not None:  # Ne pas inclure les champs None
-            donnees_a_afficher[cle] = (nom_champ, valeur)
+        # Construire le texte pour U/g/Uf
+        info_vitrage = []
+        if donnees["ug"]:
+            info_vitrage.append(f"Ug={donnees['ug']}")
+        if donnees["g"]:
+            info_vitrage.append(f"g={donnees['g']}")
+        if donnees["uf"]:
+            info_vitrage.append(f"Uf={donnees['uf']}")
+        
+        row.cells[1].text = "\n".join(info_vitrage)
+        row.cells[2].text = f"{donnees['surface']:.2f}" if donnees['surface'] else ""
+        row.cells[3].text = donnees.get("remarque", "")
+        
+        for cell in row.cells:
+            set_font(cell.paragraphs[0])
+    
+    # Ajouter les autres éléments vitrés
+    for elem in autres_elements:
+        row = table.add_row()
+        row.cells[0].text = elem.get("nom", "")
+        
+        info_vitrage = []
+        if elem.get("ug"):
+            info_vitrage.append(f"Ug={elem.get('ug')}")
+        if elem.get("g"):
+            info_vitrage.append(f"g={elem.get('g')}")
+        if elem.get("uf"):
+            info_vitrage.append(f"Uf={elem.get('uf')}")
+        
+        row.cells[1].text = "\n".join(info_vitrage)
+        row.cells[2].text = str(elem.get("surface", ""))
+        row.cells[3].text = elem.get("remarque", "")
+        
+        for cell in row.cells:
+            set_font(cell.paragraphs[0])
 
-    titre = doc.add_heading(titre_formulaire, level=2)
-    for run in titre.runs:
-        run.font.name = "Arial"
-        run.font.size = Pt(10)
-        run.font.color.rgb = RGBColor(0, 0, 0)
 
-    # ✅ REMPLIR LE TABLEAU AVEC LES DONNÉES
-    if donnees_a_afficher:
-        table = doc.add_table(rows=len(donnees_a_afficher), cols=2)
+# -----------------------------------------------------
+# 3️⃣ TABLEAU FORMULAIRE
+# -----------------------------------------------------
+def creer_tableau_formulaire(doc, titre, donnees, form_id):
+    """Crée un tableau pour un formulaire donné."""
+    p = doc.add_paragraph()
+    run = p.add_run(titre)
+    run.bold = True
+    set_font(p, size=12)
+
+    elements_opaques = donnees.pop("elements_opaques", [])
+    elements_vitres = donnees.pop("elements_vitres", [])
+
+    if donnees:
+        table = doc.add_table(rows=1, cols=2)
         table.style = "Table Grid"
+        set_table_header_gray(table, row_index=0)
 
-        # Bordures horizontales grises uniquement
-        tbl = table._element
-        tblPr = tbl.find(qn('w:tblPr'))
-        if tblPr is None:
-            tblPr = OxmlElement('w:tblPr')
-            tbl.insert(0, tblPr)
-        tblBorders = OxmlElement('w:tblBorders')
-        for border_name, color in [
-            ('top', 'BFBFBF'), ('bottom', 'BFBFBF'), ('insideH', 'BFBFBF'),
-            ('left', 'none'), ('right', 'none'), ('insideV', 'none')
-        ]:
-            border = OxmlElement(f'w:{border_name}')
-            border.set(qn('w:val'), 'single' if color != 'none' else 'none')
-            border.set(qn('w:sz'), '4')
-            border.set(qn('w:space'), '0')
-            border.set(qn('w:color'), color if color != 'none' else 'auto')
-            tblBorders.append(border)
-        tblPr.append(tblBorders)
+        # En-tête
+        cell = table.rows[0].cells[0]
+        cell.text = "Champ"
+        set_font(cell.paragraphs[0], bold=True)
 
-        # ✅ REMPLIR LES DONNÉES
-        for idx, (cle, (nom_champ, valeur)) in enumerate(donnees_a_afficher.items()):
-            row_cells = table.rows[idx].cells
+        cell = table.rows[0].cells[1]
+        cell.text = "Valeur"
+        set_font(cell.paragraphs[0], bold=True)
+
+        # ✅ Traitement spécial pour EN-VS-104 : regrouper les infos panneaux
+        if form_id == 'EN-VS-104':
+            nbre_panneaux = None
+            puissance_unitaire = None
+            donnees_temp = {}
             
-            row_cells[0].text = nom_champ
+            for cle, valeur in donnees.items():
+                cle_lower = cle.lower()
+                if 'nbre' in cle_lower and 'panneaux' in cle_lower:
+                    nbre_panneaux = valeur
+                elif 'punitaire' in cle_lower or ('puissance' in cle_lower and 'unitaire' in cle_lower):
+                    puissance_unitaire = valeur
+                else:
+                    donnees_temp[cle] = valeur
+            
+            # Ajouter la ligne regroupée si les deux valeurs sont présentes
+            if nbre_panneaux is not None and puissance_unitaire is not None:
+                donnees_temp['Installation prévue'] = f"{nbre_panneaux} panneaux de {puissance_unitaire} Wc"
+            
+            donnees = donnees_temp
+        
+        # ✅ Traitement spécial pour EN-VS-101b : renommer et ordonner les champs
+        if form_id == 'EN-VS-101b':
+            donnees_ordonnees = {}
+            ehwlk_limite = None
+            ehwlk_calculee = None
+            limite_respectee = None
+            
+            for cle, valeur in donnees.items():
+                cle_lower = cle.lower()
+                if 'ehwlk' in cle_lower and 'limite' in cle_lower and 'respecte' not in cle_lower:
+                    ehwlk_limite = valeur
+                elif 'ehwlk' in cle_lower and 'calcul' in cle_lower:
+                    ehwlk_calculee = valeur
+                elif 'limite' in cle_lower and 'respecte' in cle_lower:
+                    limite_respectee = valeur
+                else:
+                    donnees_ordonnees[cle] = valeur
+            
+            # Ajouter dans l'ordre souhaité
+            if ehwlk_limite is not None:
+                donnees_ordonnees['Valeur EHWLK limite'] = ehwlk_limite
+            if ehwlk_calculee is not None:
+                donnees_ordonnees['Valeur EHWLK calculée'] = ehwlk_calculee
+            if limite_respectee is not None:
+                donnees_ordonnees['Valeur limite respectée'] = limite_respectee
+            
+            donnees = donnees_ordonnees
+        
+        # ✅ Traitement spécial pour EN-VS-102b : renommer et ordonner les champs avec unités
+        if form_id == 'EN-VS-102b':
+            donnees_ordonnees = {}
+            qh = None
+            qh_li = None
+            puissance_spec = None
+            puissance_limite = None
+            
+            for cle, valeur in donnees.items():
+                cle_lower = cle.lower()
+                if 'qh' in cle_lower and 'limite' not in cle_lower and 'li' not in cle_lower:
+                    qh = valeur
+                elif 'qh' in cle_lower and ('limite' in cle_lower or 'li' in cle_lower):
+                    qh_li = valeur
+                elif 'puissance' in cle_lower and 'specifique' in cle_lower:
+                    puissance_spec = valeur
+                elif 'puissance' in cle_lower and 'limite' in cle_lower:
+                    puissance_limite = valeur
+                else:
+                    donnees_ordonnees[cle] = valeur
+            
+            # Ajouter dans l'ordre souhaité avec unités dans la colonne 2
+            if qh is not None:
+                donnees_ordonnees['Besoins de chaleur pour le chauffage Qh'] = f"{qh} kWh/m²"
+            if qh_li is not None:
+                donnees_ordonnees['Besoins de chaleur limite Qh,li'] = f"{qh_li} kWh/m²"
+            if puissance_spec is not None:
+                donnees_ordonnees['Puissance de chauffage spécifique'] = f"{puissance_spec} W/m²"
+            if puissance_limite is not None:
+                donnees_ordonnees['Puissance de chauffage limite'] = f"{puissance_limite} W/m²"
+            
+            donnees = donnees_ordonnees
+
+        # Contenu
+        for cle, valeur in donnees.items():
+            # ✅ Correction orthographique et suppression des champs à retirer
+            cle_corrigee = corriger_orthographe_champ(cle)
+            
+            if cle_corrigee is None:  # Champ à supprimer
+                continue
+            
+            # ✅ Ne pas afficher si la valeur est vide, None ou valeur par défaut
+            if valeur in [None, "", "N/A", "Non spécifié", "À compléter"]:
+                continue
+            
+            row_cells = table.add_row().cells
+            row_cells[0].text = cle_corrigee
             set_font(row_cells[0].paragraphs[0])
-            
-            # Formater la valeur
-            if valeur is None:
-                valeur_str = "—"
-            elif isinstance(valeur, bool):
-                valeur_str = "✓ Oui" if valeur else "✗ Non"
+
+            # Formatage valeur
+            if isinstance(valeur, bool):
+                row_cells[1].text = "Oui" if valeur else "Non"
             elif isinstance(valeur, (int, float)):
-                valeur_str = str(valeur)
-                
-                # Ajouter les unités pour les cas spéciaux
-                if form_id == 'EN-VS' and cle in ['sre_neuf', 'sre_existant']:
-                    valeur_str += " m²"
-                elif form_id == 'EN-VS-103':
-                    if 'puissance' in cle.lower():
-                        valeur_str += " kW"
-                elif form_id == 'EN-VS-104':
-                    if 'punitaire' in cle.lower():
-                        valeur_str += " Wc"
-                    elif 'puissance' in cle.lower():
-                        valeur_str += " kW"
-                elif form_id == 'EN-VS-110':
-                    if 'surface' in cle.lower():
-                        valeur_str += " m²"
-                    elif 'specifique' in cle.lower():
-                        valeur_str += " W/m²"
-                    elif 'puissance' in cle.lower() and 'specifique' not in cle.lower():
-                        valeur_str += " kW"
-            elif isinstance(valeur, list):
-                valeur_str = ", ".join(str(v) for v in valeur) if valeur else "—"
-            elif isinstance(valeur, dict):
-                valeur_str = json.dumps(valeur, ensure_ascii=False, indent=2)
+                row_cells[1].text = str(valeur)
             else:
-                valeur_str = str(valeur)
-            
-            row_cells[1].text = valeur_str
+                row_cells[1].text = str(valeur)
             set_font(row_cells[1].paragraphs[0])
             
             # ✅ Surligner en jaune la ligne "Solution standard choisie"
@@ -518,6 +495,15 @@ def creer_tableau_formulaire(doc, titre_formulaire, donnees, form_id=None):
                 for cell in row_cells:
                     shading_elm = parse_xml(r'<w:shd {} w:fill="FFFF00"/>'.format(nsdecls('w')))  # Jaune
                     cell._element.get_or_add_tcPr().append(shading_elm)
+            
+            # ✅ Ajouter la ligne "Commande automatique des protections solaires" après "Respect de la valeur g"
+            if (form_id in ['EN-VS-102a', 'EN-VS-102b']) and \
+               ('protection thermique ete valeur g' in cle.lower() or 'respect de la valeur g' in cle.lower()):
+                row_cmd = table.add_row().cells
+                row_cmd[0].text = "Commande automatique des protections solaires"
+                row_cmd[1].text = ""  # ✅ Valeur vide à remplir
+                set_font(row_cmd[0].paragraphs[0])
+                set_font(row_cmd[1].paragraphs[0])
 
         table.columns[0].width = Inches(3.0)
         table.columns[1].width = Inches(4.0)
@@ -609,7 +595,7 @@ def ajouter_pied_de_page(doc, config=None):
         p = cell.add_paragraph(r, style="List Bullet")
         set_font(p)
     
-    doc.add_paragraph()  # ✅ Ligne après le préavis
+    doc.add_paragraph()
 
     # Texte final
     p = doc.add_paragraph(
@@ -639,14 +625,42 @@ def ajouter_pied_de_page(doc, config=None):
         utilisateur_info = config['utilisateur']
         p.text = f"Enerconseil SA\n{utilisateur_info['prenom']} {utilisateur_info['nom']}"
     else:
-        # Valeur par défaut
-        p.text = "Enerconseil SA\nJérôme Bonvin"
+        # ✅ Pas de valeur par défaut si config manquante
+        p.text = "Enerconseil SA\n"
     
     set_font(p)
 
 
 # -----------------------------------------------------
-# 5️⃣ EXPORT PRINCIPAL
+# 5️⃣ FONCTIONS UTILITAIRES POUR VÉRIFIER LES FORMULAIRES
+# -----------------------------------------------------
+def verifier_formulaire_rempli(donnees, form_id):
+    """
+    Vérifie si un formulaire est présent et contient des données significatives.
+    Retourne True si le formulaire est rempli, False sinon.
+    """
+    if form_id not in donnees:
+        return False
+    
+    form_data = donnees[form_id]
+    
+    # Ignorer les clés liées aux éléments d'enveloppe
+    cles_a_ignorer = ['elements_opaques', 'elements_vitres']
+    
+    # Vérifier s'il y a au moins une valeur significative
+    for cle, valeur in form_data.items():
+        if cle in cles_a_ignorer:
+            continue
+        
+        # Une valeur est significative si elle n'est pas vide/None/valeur par défaut
+        if valeur not in [None, "", "N/A", "Non spécifié", "À compléter"]:
+            return True
+    
+    return False
+
+
+# -----------------------------------------------------
+# 6️⃣ EXPORT PRINCIPAL
 # -----------------------------------------------------
 def exporter_vers_word(json_path, output_path=None):
     with open(json_path, "r", encoding="utf-8") as f:
@@ -658,16 +672,51 @@ def exporter_vers_word(json_path, output_path=None):
     doc = Document()
     ajouter_entete(doc, data.get("numero_dossier"), config)
 
+    # ✅ Vérifier quels formulaires 101 et 102 sont présents et remplis
+    form_101a_present = verifier_formulaire_rempli(data, "EN-VS-101a")
+    form_101b_present = verifier_formulaire_rempli(data, "EN-VS-101b")
+    form_102a_present = verifier_formulaire_rempli(data, "EN-VS-102a")
+    form_102b_present = verifier_formulaire_rempli(data, "EN-VS-102b")
+    
+    # ✅ Supprimer les formulaires non remplis
+    if form_101a_present and form_101b_present:
+        # Si les deux sont présents, garder celui qui a le plus de données
+        info("Les deux formulaires EN-VS-101a et EN-VS-101b sont présents. Conservation du plus complet.")
+        if len(data.get("EN-VS-101a", {})) < len(data.get("EN-VS-101b", {})):
+            data.pop("EN-VS-101a", None)
+            form_101a_present = False
+        else:
+            data.pop("EN-VS-101b", None)
+            form_101b_present = False
+    elif not form_101a_present and "EN-VS-101a" in data:
+        data.pop("EN-VS-101a", None)
+    elif not form_101b_present and "EN-VS-101b" in data:
+        data.pop("EN-VS-101b", None)
+    
+    if form_102a_present and form_102b_present:
+        # Si les deux sont présents, garder celui qui a le plus de données
+        info("Les deux formulaires EN-VS-102a et EN-VS-102b sont présents. Conservation du plus complet.")
+        if len(data.get("EN-VS-102a", {})) < len(data.get("EN-VS-102b", {})):
+            data.pop("EN-VS-102a", None)
+            form_102a_present = False
+        else:
+            data.pop("EN-VS-102b", None)
+            form_102b_present = False
+    elif not form_102a_present and "EN-VS-102a" in data:
+        data.pop("EN-VS-102a", None)
+    elif not form_102b_present and "EN-VS-102b" in data:
+        data.pop("EN-VS-102b", None)
+
     ordre = [
         ("EN-VS", "EN-VS – Informations générales"),
-        ("EN-VS-101a", "EN-VS-101a – Solution standard"),
-        ("EN-VS-101b", "EN-VS-101b – Valeur limite EHWLK"),
-        ("EN-VS-102a", "EN-VS-102a – Enveloppe thermique et ventilation (simplifié)"),
-        ("EN-VS-102b", "EN-VS-102b – Besoins de chaleur et enveloppe (détaillé)"),
+        ("EN-VS-101a", "EN-VS-101a – Couverture des besoins de chaleur - solution standard"),
+        ("EN-VS-101b", "EN-VS-101b – Couverture des besoins de chaleur calculée"),
+        ("EN-VS-102a", "EN-VS-102a – Protection thermique - exigences ponctuelles"),
+        ("EN-VS-102b", "EN-VS-102b – Protection thermique - exigences globales"),
         ("EN-VS-103", "EN-VS-103 – Chauffage et eau chaude sanitaire"),
         ("EN-VS-104", "EN-VS-104 – Production propre d'électricité"),
-        ("EN-VS-105", "EN-VS-105 – Ventilation"),
-        ("EN-VS-110", "EN-VS-110 – Rafraîchissement et climatisation"),
+        ("EN-VS-105", "EN-VS-105 – Installation de ventilation"),
+        ("EN-VS-110", "EN-VS-110 – Rafraîchissement, (dés)humidification"),
     ]
 
     for form_id, titre in ordre:
@@ -694,7 +743,7 @@ def exporter_vers_word(json_path, output_path=None):
 
 
 # -----------------------------------------------------
-# 6️⃣ MODE CLI
+# 7️⃣ MODE CLI
 # -----------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="Exporter un fichier JSON d'extraction vers Word (format conformité)")
